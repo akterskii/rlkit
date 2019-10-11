@@ -221,6 +221,7 @@ def setup_logger(
         log_dir=None,
         git_infos=None,
         script_name=None,
+        to_file_only = True,
         **create_log_dir_kwargs
 ):
     """
@@ -276,6 +277,8 @@ def setup_logger(
     logger.set_log_tabular_only(log_tabular_only)
     exp_name = log_dir.split("/")[-1]
     logger.push_prefix("[%s] " % exp_name)
+
+    logger._to_file_only = to_file_only
 
     if git_infos is not None:
         for (

@@ -1,5 +1,7 @@
-from gym.envs.mujoco import HalfCheetahEnv
+# from gym.envs.mujoco import HalfCheetahEnv
+from gym.envs.box2d import BipedalWalkerHardcore
 
+import gtimer as gt
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.envs.wrappers import NormalizedBoxEnv
@@ -12,8 +14,8 @@ from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 
 
 def experiment(variant):
-    expl_env = NormalizedBoxEnv(HalfCheetahEnv())
-    eval_env = NormalizedBoxEnv(HalfCheetahEnv())
+    expl_env = NormalizedBoxEnv(BipedalWalkerHardcore())
+    eval_env = NormalizedBoxEnv(BipedalWalkerHardcore())
     obs_dim = expl_env.observation_space.low.size
     action_dim = eval_env.action_space.low.size
 
@@ -88,13 +90,13 @@ if __name__ == "__main__":
         layer_size=256,
         replay_buffer_size=int(1E6),
         algorithm_kwargs=dict(
-            num_epochs=3000,
-            num_eval_steps_per_epoch=5000,
-            num_trains_per_train_loop=1000,
-            num_expl_steps_per_train_loop=1000,
-            min_num_steps_before_training=1000,
-            max_path_length=1000,
-            batch_size=256,
+            num_epochs=3,
+            num_eval_steps_per_epoch=50,
+            num_trains_per_train_loop=10,
+            num_expl_steps_per_train_loop=10,
+            min_num_steps_before_training=10,
+            max_path_length=10,
+            batch_size=25,
         ),
         trainer_kwargs=dict(
             discount=0.99,
@@ -106,6 +108,7 @@ if __name__ == "__main__":
             use_automatic_entropy_tuning=True,
         ),
     )
-    setup_logger('name-of-experiment', variant=variant)
-    # ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
+    setup_logger('name-of-experiment', variant=variant, log_dir='d:/tmp2',to_file_only=False)
+    ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
+    gt.reset_root() # for interactive restarts
     experiment(variant)

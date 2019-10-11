@@ -90,6 +90,7 @@ class Logger(object):
 
         self._log_tabular_only = False
         self._header_printed = False
+        self._to_file_only = True
         self.table_printer = TerminalTablePrinter()
 
     def reset(self):
@@ -99,7 +100,7 @@ class Logger(object):
         if file_name not in arr:
             mkdir_p(os.path.dirname(file_name))
             arr.append(file_name)
-            fds[file_name] = open(file_name, mode)
+            fds[file_name] = open(file_name, mode, encoding="utf-8")
 
     def _remove_output(self, file_name, arr, fds):
         if file_name in arr:
@@ -257,8 +258,9 @@ class Logger(object):
             if self._log_tabular_only:
                 self.table_printer.print_tabular(self._tabular)
             else:
-                for line in tabulate(self._tabular).split('\n'):
-                    self.log(line, *args, **kwargs)
+                if not self._to_file_only:
+                    for line in tabulate(self._tabular).split('\n'):
+                        self.log(line, *args, **kwargs)
             tabular_dict = dict(self._tabular)
             # Also write to the csv files
             # This assumes that the keys in each iteration won't change!
