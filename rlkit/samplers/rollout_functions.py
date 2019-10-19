@@ -109,6 +109,8 @@ def rollout(
     if render:
         env.render(**render_kwargs)
     while path_length < max_path_length:
+        print('O: ', o.shape)
+
         a, agent_info = agent.get_action(o)
         next_o, r, d, env_info = env.step(a)
         observations.append(o)

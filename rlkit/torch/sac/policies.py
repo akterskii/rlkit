@@ -124,6 +124,27 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
         )
 
 
+class DeadTanhPolicy(Policy):
+    def __init__(self,
+                 tanh_gaussian_policy,
+                 dead_prediction_policy,
+                 dead_prediction_qf,
+                 threshold
+                 ):
+        self.tanhGaussianPolicy = tanh_gaussian_policy
+        self.deadPredictionPolicy = dead_prediction_policy
+        self.deadPredictionQf = dead_prediction_qf
+        self.threshold = threshold
+
+    def get_action(self, observation, determenestic=False):
+        action = self.tanhGaussianPolicy.get_action(observation, determenestic=determenestic)
+
+        if self.deadPredictionQf.forward(observation, action) >= self.threshold:
+            action = self.deadPredictionPolicy.get_action(observation)
+
+        return action
+
+
 class MakeDeterministic(Policy):
     def __init__(self, stochastic_policy):
         self.stochastic_policy = stochastic_policy
