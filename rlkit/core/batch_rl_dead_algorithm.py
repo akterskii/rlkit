@@ -57,6 +57,9 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             )
             self.replay_buffer.add_paths(init_expl_paths)
             self.replay_dead_buffer.add_paths(init_expl_paths)
+            for p in init_expl_paths:
+                print("plen: {} last reward: {}".format(len(p['actions']), p['terminals'][-1]))
+            print("Dead size: ",self.replay_dead_buffer._size)
             self.expl_data_collector.end_epoch(-1)
 
         for epoch in gt.timed_for(
@@ -87,6 +90,7 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                     # TODO improve data labeling for train_dead_safe_data
                     train_data = self.replay_buffer.random_batch(
                         self.batch_size)
+                    #print(self.batch_dead_size, self.replay_dead_buffer._size)
                     train_dead_dead_data = self.replay_dead_buffer.random_batch(
                         self.batch_dead_size)
                     # sample 'safe' data for class balances

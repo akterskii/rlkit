@@ -3,7 +3,7 @@ import torch
 from torch import nn as nn
 
 from rlkit.policies.base import ExplorationPolicy, Policy
-from rlkit.torch.core import eval_np
+from rlkit.torch.core import eval_np, torch_ify, np_to_pytorch_batch
 from rlkit.torch.distributions import TanhNormal
 from rlkit.torch.networks import Mlp
 
@@ -136,13 +136,18 @@ class DeadTanhPolicy(Policy):
         self.deadPredictionQf = dead_prediction_qf
         self.threshold = threshold
 
-    def get_action(self, observation, determenestic=False):
-        action = self.tanhGaussianPolicy.get_action(observation, determenestic=determenestic)
+    def get_action(self, observation, deterministic=False):
 
-        if self.deadPredictionQf.forward(observation, action) >= self.threshold:
-            action = self.deadPredictionPolicy.get_action(observation)
+        #print(observation, type(observation))
+        action = self.tanhGaussianPolicy.get_action(observation, deterministic=deterministic)[0]
 
-        return action
+        torch_observation = torch_ify(np.expand_dims(observation, axis=0))
+        torch_action = torch_ify(np.expand_dims(action, axis=0))
+        # print(torch_observation, torch_action)
+        if self.deadPredictionQf(torch_observation, torch_action) >= self.threshold:
+            action = self.deadPredictionPolicy.get_action(observation)[0]
+
+        return action, {}
 
 
 class MakeDeterministic(Policy):

@@ -91,12 +91,12 @@ if __name__ == "__main__":
         replay_buffer_size=int(1E6),
         algorithm_kwargs=dict(
             num_epochs=3,
-            num_eval_steps_per_epoch=50,
-            num_trains_per_train_loop=10,
-            num_expl_steps_per_train_loop=10,
-            min_num_steps_before_training=10,
-            max_path_length=10,
-            batch_size=25,
+            num_eval_steps_per_epoch=1000,
+            num_trains_per_train_loop=100,
+            num_expl_steps_per_train_loop=1000,
+            min_num_steps_before_training=1000,
+            max_path_length=300,
+            batch_size=50,
         ),
         trainer_kwargs=dict(
             discount=0.99,

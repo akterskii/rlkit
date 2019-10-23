@@ -4,6 +4,8 @@ import numpy as np
 import torch
 import torch.optim as optim
 from torch import nn as nn
+from typing import Iterable
+from torch.optim.optimizer import Optimizer
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core.eval_util import create_stats_ordered_dict
@@ -210,13 +212,21 @@ class SACTrainer(TorchTrainer):
         self._need_to_update_eval_statistics = True
 
     @property
-    def networks(self):
+    def networks(self) -> Iterable[nn.Module]:
         return [
             self.policy,
             self.qf1,
             self.qf2,
             self.target_qf1,
             self.target_qf2,
+        ]
+
+    @property
+    def optimizers(self) -> Iterable[Optimizer]:
+        return [
+            self.policy_optimizer,
+            self.qf1_optimizer,
+            self.qf2_optimizer,
         ]
 
     def get_snapshot(self):
@@ -226,4 +236,7 @@ class SACTrainer(TorchTrainer):
             qf2=self.qf2,
             target_qf1=self.qf1,
             target_qf2=self.qf2,
+            policy_optimizer=self.policy_optimizer,
+            qf1_optimizer=self.qf1_optimizer,
+            qf2_optimizer=self.qf2_optimizer,
         )

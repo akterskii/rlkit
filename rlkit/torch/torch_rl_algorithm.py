@@ -3,6 +3,8 @@ from collections import OrderedDict
 
 from typing import Iterable
 from torch import nn as nn
+from torch.optim.optimizer import Optimizer
+import torch
 
 from rlkit.core.batch_rl_algorithm import BatchRLAlgorithm
 from rlkit.core.batch_rl_dead_algorithm import BatchRLDeadAlgorithm
@@ -63,3 +65,37 @@ class TorchTrainer(Trainer, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def networks(self) -> Iterable[nn.Module]:
         pass
+
+    @property
+    @abc.abstractmethod
+    def optimizers(self) -> Iterable[Optimizer]:
+        pass
+
+    def load_nets(self, path):
+        checkpoint = torch.load(path)
+
+        nets = self.networks
+        optimizers = self.optimizers
+        object_num = 0
+
+        for net in enumerate(nets):
+            net.load_state_dict(checkpoint[object_num])
+            object_num += 1
+        for optimizer in optimizers:
+            optimizer.load_state_dict(checkpoint[object_num])
+
+    def save_nets(self, path):
+        nets = self.networks
+        optimizers = self.optimizers
+
+        model_paramas = {}
+        object_num = 0
+        for net in enumerate(nets):
+            model_paramas[object_num] = net.state_dict()
+            object_num += 1
+
+        for optimizer in optimizers:
+            model_paramas[object_num] = optimizer.state_dict()
+            object_num += 1
+
+        torch.save(model_paramas, path)
