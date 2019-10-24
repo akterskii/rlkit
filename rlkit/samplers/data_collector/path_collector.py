@@ -3,6 +3,7 @@ from collections import deque, OrderedDict
 from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.samplers.rollout_functions import rollout, multitask_rollout
 from rlkit.samplers.data_collector.base import PathCollector
+from rlkit.torch.sac.policies import DangerPolicyCounterWrapper
 
 
 class MdpPathCollector(PathCollector):
@@ -31,6 +32,7 @@ class MdpPathCollector(PathCollector):
             max_path_length,
             num_steps,
             discard_incomplete_paths,
+            random_exploration=False,
     ):
         paths = []
         num_steps_collected = 0
@@ -43,6 +45,7 @@ class MdpPathCollector(PathCollector):
                 self._env,
                 self._policy,
                 max_path_length=max_path_length_this_loop,
+                random_exploration=random_exploration
             )
             path_len = len(path['actions'])
             if (
@@ -83,6 +86,19 @@ class MdpPathCollector(PathCollector):
             policy=self._policy,
         )
 
+class MdpPathCollectorWithDanger(MdpPathCollector):
+    def __init__(self,
+            env,
+            policy:DangerPolicyCounterWrapper,
+            max_num_epoch_paths_saved=None,
+            render=False,
+            render_kwargs=None,):
+        super().__init__(env, policy, max_num_epoch_paths_saved, render, render_kwargs)
+
+    def get_diagnostics(self):
+        stats = super().get_diagnostics()
+        stats['danger_updates'] = self._policy.get_updates_count()
+        return stats
 
 class GoalConditionedPathCollector(PathCollector):
     def __init__(

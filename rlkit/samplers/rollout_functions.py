@@ -79,6 +79,7 @@ def rollout(
         max_path_length=np.inf,
         render=False,
         render_kwargs=None,
+        random_exploration = False
 ):
     """
     The following value for the following keys will be a 2D array, with the
@@ -110,8 +111,11 @@ def rollout(
         env.render(**render_kwargs)
     while path_length < max_path_length:
         # print('O: ',o, o.shape)
-
-        a, agent_info = agent.get_action(o)
+        if random_exploration:
+            a = env.action_space.sample()
+            agent_info = None
+        else:
+            a, agent_info = agent.get_action(o)
         next_o, r, d, env_info = env.step(a)
         observations.append(o)
         rewards.append(r)

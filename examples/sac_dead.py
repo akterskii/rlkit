@@ -1,15 +1,16 @@
 # from gym.envs.mujoco import HalfCheetahEnv
-from gym.envs.box2d import BipedalWalkerHardcore
+from gym.envs.box2d import BipedalWalkerHardcore, BipedalWalker, LunarLanderContinuous
 
 import gtimer as gt
 from torch.nn import functional as F
+import torch
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer, DeadEndEnvReplayBuffer
 
 from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.launchers.launcher_util import setup_logger
-from rlkit.samplers.data_collector import MdpPathCollector
-from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic, DeadTanhPolicy
+from rlkit.samplers.data_collector import MdpPathCollectorWithDanger
+from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic, DangerAndPolicy, DangerPolicyCounterWrapper
 from rlkit.torch.sac.sac_dead import SACDeadTrainer
 from rlkit.torch.networks import FlattenMlp, TanhMlpPolicy
 
@@ -56,7 +57,7 @@ def experiment(variant):
         input_size=obs_dim + action_dim,
         output_size=1,
         hidden_sizes=[M, M],
-        output_activation=F.sigmoid,
+        output_activation=torch.sigmoid,
     )
     policy_dead = TanhMlpPolicy(
         input_size=obs_dim,
@@ -65,23 +66,24 @@ def experiment(variant):
         #  **variant['policy_kwargs']
     )
 
-    global_policy = DeadTanhPolicy(
+    global_policy = DangerAndPolicy(
         tanh_gaussian_policy=sac_policy,
         dead_prediction_policy=policy_dead,
         dead_prediction_qf=qf_dead,
         threshold=variant['threshold']
     )
 
-    eval_policy = MakeDeterministic(global_policy)
+    expl_policy = DangerPolicyCounterWrapper(global_policy)
+    eval_policy = DangerPolicyCounterWrapper(global_policy, deterministic=True)
 
-    eval_path_collector = MdpPathCollector(
+    eval_path_collector = MdpPathCollectorWithDanger(
         eval_env,
         eval_policy,
     )
 
-    expl_path_collector = MdpPathCollector(
+    expl_path_collector = MdpPathCollectorWithDanger(
         expl_env,
-        global_policy,
+        expl_policy,
     )
 
     replay_buffer = EnvReplayBuffer(
@@ -124,19 +126,19 @@ if __name__ == "__main__":
     variant = dict(
         algorithm="SAC dead",
         version="normal",
-        env_class=BipedalWalkerHardcore,
+        env_class=LunarLanderContinuous,  # BipedalWalkerHardcore,
         env_terminal_reward=-100,
         layer_size=256,
         replay_buffer_size=int(1E6),
         threshold=0.7,
 
         algorithm_kwargs=dict(
-            num_epochs=3,
-            num_eval_steps_per_epoch=1000,
-            num_trains_per_train_loop=500,
-            num_expl_steps_per_train_loop=1000,
-            min_num_steps_before_training=1000,
-            max_path_length=100,
+            num_epochs=20,
+            num_eval_steps_per_epoch=500,
+            num_trains_per_train_loop=300,
+            num_expl_steps_per_train_loop=500,
+            min_num_steps_before_training=500,
+            max_path_length=200,
             batch_size=100,
             batch_dead_size= 50 # 2 times smaller than batch_size
         ),

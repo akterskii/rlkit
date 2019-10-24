@@ -49,11 +49,12 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
 
     def _train(self):
         if self.min_num_steps_before_training > 0:
-            # TODO add a random sampling
+
             init_expl_paths = self.expl_data_collector.collect_new_paths(
                 self.max_path_length,
                 self.min_num_steps_before_training,
                 discard_incomplete_paths=False,
+                random_exploration=True
             )
             self.replay_buffer.add_paths(init_expl_paths)
             self.replay_dead_buffer.add_paths(init_expl_paths)
@@ -66,11 +67,13 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 range(self._start_epoch, self.num_epochs),
                 save_itrs=True,
         ):
+
             self.eval_data_collector.collect_new_paths(
                 self.max_path_length,
                 self.num_eval_steps_per_epoch,
                 discard_incomplete_paths=True,
             )
+            danger_updates_eval = self.eval_data_collector._policy.get_updates_count()
             gt.stamp('evaluation sampling')
 
             for _ in range(self.num_train_loops_per_epoch):
@@ -79,6 +82,8 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                     self.num_expl_steps_per_train_loop,
                     discard_incomplete_paths=False,
                 )
+
+                danger_updates_expl = self.expl_data_collector._policy.get_updates_count()
                 gt.stamp('exploration sampling', unique=False)
 
                 self.replay_buffer.add_paths(new_expl_paths)

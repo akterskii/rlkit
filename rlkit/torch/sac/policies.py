@@ -124,7 +124,7 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
         )
 
 
-class DeadTanhPolicy(Policy):
+class DangerAndPolicy(Policy):
     def __init__(self,
                  tanh_gaussian_policy,
                  dead_prediction_policy,
@@ -136,18 +136,21 @@ class DeadTanhPolicy(Policy):
         self.deadPredictionQf = dead_prediction_qf
         self.threshold = threshold
 
-    def get_action(self, observation, deterministic=False):
+        self.is_update_on_last_action = False
 
-        #print(observation, type(observation))
+    def get_action(self, observation, deterministic=False):
+        self.is_update_on_last_action = False
+
         action = self.tanhGaussianPolicy.get_action(observation, deterministic=deterministic)[0]
 
         torch_observation = torch_ify(np.expand_dims(observation, axis=0))
         torch_action = torch_ify(np.expand_dims(action, axis=0))
         # print(torch_observation, torch_action)
         if self.deadPredictionQf(torch_observation, torch_action) >= self.threshold:
+            self.is_update_on_last_action = True
             action = self.deadPredictionPolicy.get_action(observation)[0]
-
         return action, {}
+
 
 
 class MakeDeterministic(Policy):
@@ -157,3 +160,27 @@ class MakeDeterministic(Policy):
     def get_action(self, observation):
         return self.stochastic_policy.get_action(observation,
                                                  deterministic=True)
+
+
+class DangerPolicyCounterWrapper(Policy):
+    def __init__(self, danger_policy: DangerAndPolicy, deterministic=None):
+        self.danger_policy = danger_policy
+        self.updates = 0
+        self.deterministic = deterministic
+
+    def get_action(self, observation):
+        if self.deterministic is not None:
+            res = self.danger_policy.get_action(observation, deterministic=self.deterministic)
+        else:
+            res = self.danger_policy.get_action(observation, deterministic=self.deterministic)
+
+        if self.danger_policy.is_update_on_last_action:
+            self.updates += 1
+
+        return res
+
+    def get_updates_count(self):
+        return self.updates
+
+    def reset_updates_count(self):
+        self.updates = 0
