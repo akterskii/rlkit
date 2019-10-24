@@ -165,7 +165,8 @@ class MakeDeterministic(Policy):
 class DangerPolicyCounterWrapper(Policy):
     def __init__(self, danger_policy: DangerAndPolicy, deterministic=None):
         self.danger_policy = danger_policy
-        self.updates = 0
+        self._updates = 0
+        print('\n\nReset policy\n\n')
         self.deterministic = deterministic
 
     def get_action(self, observation):
@@ -175,12 +176,12 @@ class DangerPolicyCounterWrapper(Policy):
             res = self.danger_policy.get_action(observation, deterministic=self.deterministic)
 
         if self.danger_policy.is_update_on_last_action:
-            self.updates += 1
+            self._updates += 1
 
         return res
 
     def get_updates_count(self):
-        return self.updates
+        return self._updates
 
     def reset_updates_count(self):
-        self.updates = 0
+        self._updates = 0

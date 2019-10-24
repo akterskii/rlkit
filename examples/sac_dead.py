@@ -9,7 +9,7 @@ from rlkit.data_management.env_replay_buffer import EnvReplayBuffer, DeadEndEnvR
 
 from rlkit.envs.wrappers import NormalizedBoxEnv
 from rlkit.launchers.launcher_util import setup_logger
-from rlkit.samplers.data_collector import MdpPathCollectorWithDanger
+from rlkit.samplers.data_collector import MdpPathCollectorWithDanger, MdpEvaluationWithDanger
 from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic, DangerAndPolicy, DangerPolicyCounterWrapper
 from rlkit.torch.sac.sac_dead import SACDeadTrainer
 from rlkit.torch.networks import FlattenMlp, TanhMlpPolicy
@@ -28,6 +28,8 @@ def experiment(variant):
     #  variant['env_terminal_reward']
 
     M = variant['layer_size']
+
+    reward_to_pass = variant['reward_to_pass,'],
     qf1 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
@@ -76,7 +78,7 @@ def experiment(variant):
     expl_policy = DangerPolicyCounterWrapper(global_policy)
     eval_policy = DangerPolicyCounterWrapper(global_policy, deterministic=True)
 
-    eval_path_collector = MdpPathCollectorWithDanger(
+    eval_path_collector = MdpEvaluationWithDanger(
         eval_env,
         eval_policy,
     )
@@ -115,6 +117,8 @@ def experiment(variant):
         evaluation_data_collector=eval_path_collector,
         replay_buffer=replay_buffer,
         replay_dead_buffer=replay_dead_buffer,
+        num_eps_for_evaluation=num_eps_for_evaluation,
+        reward_to_pass=reward_to_pass,
         **variant['algorithm_kwargs']
     )
     algorithm.to(ptu.device)
@@ -127,20 +131,23 @@ if __name__ == "__main__":
         algorithm="SAC dead",
         version="normal",
         env_class=LunarLanderContinuous,  # BipedalWalkerHardcore,
+        reward_to_pass=200,               # 300
         env_terminal_reward=-100,
         layer_size=256,
         replay_buffer_size=int(1E6),
         threshold=0.7,
 
+
         algorithm_kwargs=dict(
             num_epochs=20,
-            num_eval_steps_per_epoch=500,
-            num_trains_per_train_loop=300,
-            num_expl_steps_per_train_loop=500,
-            min_num_steps_before_training=500,
+            num_eval_steps_per_epoch=300,
+            num_trains_per_train_loop=200,
+            num_expl_steps_per_train_loop=200,
+            min_num_steps_before_training=200,
             max_path_length=200,
-            batch_size=100,
-            batch_dead_size= 50 # 2 times smaller than batch_size
+            batch_size=50,
+            batch_dead_size=25,  # 2 times smaller than batch_size
+            num_eps_for_evaluation=20
         ),
 
         trainer_kwargs=dict(

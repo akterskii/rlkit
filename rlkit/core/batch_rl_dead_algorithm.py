@@ -4,7 +4,7 @@ import gtimer as gt
 from rlkit.core.rl_algorithm import BaseRLAlgorithm
 from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.data_management.env_replay_buffer import DeadEndEnvReplayBuffer
-from rlkit.samplers.data_collector import PathCollector
+from rlkit.samplers.data_collector import PathCollector, MdpEvaluationWithDanger
 
 
 class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
@@ -14,7 +14,7 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             exploration_env,
             evaluation_env,
             exploration_data_collector: PathCollector,
-            evaluation_data_collector: PathCollector,
+            evaluation_data_collector: MdpEvaluationWithDanger,
             replay_buffer: ReplayBuffer,
             replay_dead_buffer: DeadEndEnvReplayBuffer,
             batch_size,
@@ -24,6 +24,8 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             num_eval_steps_per_epoch,
             num_expl_steps_per_train_loop,
             num_trains_per_train_loop,
+            num_eps_for_evaluation,
+            reward_to_pass,
             num_train_loops_per_epoch=1,
             min_num_steps_before_training=0,
     ):
@@ -41,11 +43,13 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         self.batch_dead_size = batch_dead_size
         self.max_path_length = max_path_length
         self.num_epochs = num_epochs
-        self.num_eval_steps_per_epoch = num_eval_steps_per_epoch
+        # self.num_eval_steps_per_epoch = num_eval_steps_per_epoch
         self.num_trains_per_train_loop = num_trains_per_train_loop
         self.num_train_loops_per_epoch = num_train_loops_per_epoch
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
+        self.num_eps = num_eps_for_evaluation,
+        self.reward_to_pass = reward_to_pass
 
     def _train(self):
         if self.min_num_steps_before_training > 0:
@@ -68,13 +72,18 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 save_itrs=True,
         ):
 
-            self.eval_data_collector.collect_new_paths(
+            _, solved = self.eval_data_collector.collect_new_paths(
                 self.max_path_length,
-                self.num_eval_steps_per_epoch,
-                discard_incomplete_paths=True,
+                self.num_eps,
+                self.reward_to_pass
             )
-            danger_updates_eval = self.eval_data_collector._policy.get_updates_count()
+
+
             gt.stamp('evaluation sampling')
+
+            if solved:
+                self._end_epoch(epoch)
+                return True
 
             for _ in range(self.num_train_loops_per_epoch):
                 new_expl_paths = self.expl_data_collector.collect_new_paths(
@@ -111,3 +120,5 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 self.training_mode(False)
 
             self._end_epoch(epoch)
+
+        return False

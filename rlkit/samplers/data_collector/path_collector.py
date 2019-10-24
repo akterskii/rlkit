@@ -4,7 +4,7 @@ from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.samplers.rollout_functions import rollout, multitask_rollout
 from rlkit.samplers.data_collector.base import PathCollector
 from rlkit.torch.sac.policies import DangerPolicyCounterWrapper
-
+import numpy as np
 
 class MdpPathCollector(PathCollector):
     def __init__(
@@ -99,6 +99,43 @@ class MdpPathCollectorWithDanger(MdpPathCollector):
         stats = super().get_diagnostics()
         stats['danger_updates'] = self._policy.get_updates_count()
         return stats
+
+
+class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
+    def collect_new_paths(
+        self,
+        max_path_length,
+        num_eps,
+        reward_to_pass
+    ):
+        paths = []
+        ep_collected = 0
+        while ep_collected < num_eps:
+            path = rollout(
+                self._env,
+                self._policy,
+                max_path_length=max_path_length
+            )
+            path_len = len(path['actions'])
+
+            if (
+                    path_len != max_path_length
+                    and not path['terminals'][-1]
+            ):
+                break
+            ep_collected += 1
+            paths.append(path)
+        self._num_paths_total += len(paths)
+        self._epoch_paths.extend(paths)
+        returns = [sum(path["rewards"]) for path in paths]
+        solved = False
+
+        if np.min(returns) > reward_to_pass:
+            print("Solved")
+            solved = True
+
+        return paths, solved
+
 
 class GoalConditionedPathCollector(PathCollector):
     def __init__(
