@@ -49,11 +49,12 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         self.num_train_loops_per_epoch = num_train_loops_per_epoch
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
-        self.num_eps = num_eps_for_evaluation,
+        self.num_eps = num_eps_for_evaluation
         self.reward_to_pass = reward_to_pass
         self.evaluation_after_steps = evaluation_after_steps
 
     def _train(self):
+
         if self.min_num_steps_before_training > 0:
 
             init_expl_paths = self.expl_data_collector.collect_new_paths(
@@ -64,9 +65,9 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             )
             self.replay_buffer.add_paths(init_expl_paths)
             self.replay_dead_buffer.add_paths(init_expl_paths)
-            for p in init_expl_paths:
-                print("plen: {} last reward: {}".format(len(p['actions']), p['terminals'][-1]))
-            print("Dead size: ",self.replay_dead_buffer._size)
+            #for p in init_expl_paths:
+            #    print("plen: {} last reward: {}".format(len(p['actions']), p['terminals'][-1]))
+            #print("Dead size: ",self.replay_dead_buffer._size)
             self.expl_data_collector.end_epoch(-1)
 
         for epoch in gt.timed_for(
@@ -82,7 +83,7 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 )
             else:
                 self.eval_data_collector.collect_new_paths(
-                    10,
+                    1000,
                     1,
                     self.reward_to_pass
                 )

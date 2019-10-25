@@ -110,6 +110,7 @@ class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
     ):
         paths = []
         ep_collected = 0
+
         while ep_collected < num_eps:
             path = rollout(
                 self._env,

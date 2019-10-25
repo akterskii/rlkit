@@ -29,8 +29,8 @@ def experiment(variant):
 
     M = variant['layer_size']
 
-    reward_to_pass = variant['reward_to_pass,']
-    num_eps_for_evaluation = variant['num_eps_for_evaluation']
+    reward_to_pass = variant['reward_to_pass']
+
     qf1 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
@@ -118,7 +118,6 @@ def experiment(variant):
         evaluation_data_collector=eval_path_collector,
         replay_buffer=replay_buffer,
         replay_dead_buffer=replay_dead_buffer,
-        num_eps_for_evaluation=num_eps_for_evaluation,
         reward_to_pass=reward_to_pass,
         **variant['algorithm_kwargs']
     )

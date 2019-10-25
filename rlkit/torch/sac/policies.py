@@ -166,7 +166,6 @@ class DangerPolicyCounterWrapper(Policy):
     def __init__(self, danger_policy: DangerAndPolicy, deterministic=None):
         self.danger_policy = danger_policy
         self._updates = 0
-        print('\n\nReset policy\n\n')
         self.deterministic = deterministic
 
     def get_action(self, observation):
