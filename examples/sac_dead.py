@@ -147,7 +147,8 @@ if __name__ == "__main__":
             max_path_length=200,
             batch_size=50,
             batch_dead_size=25,  # 2 times smaller than batch_size
-            num_eps_for_evaluation=20
+            num_eps_for_evaluation=20,
+            evaluation_after_steps=15000,
         ),
 
         trainer_kwargs=dict(

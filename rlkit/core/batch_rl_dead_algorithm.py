@@ -26,6 +26,7 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             num_trains_per_train_loop,
             num_eps_for_evaluation,
             reward_to_pass,
+            evaluation_after_steps,
             num_train_loops_per_epoch=1,
             min_num_steps_before_training=0,
     ):
@@ -50,6 +51,7 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         self.min_num_steps_before_training = min_num_steps_before_training
         self.num_eps = num_eps_for_evaluation,
         self.reward_to_pass = reward_to_pass
+        self.evaluation_after_steps = evaluation_after_steps
 
     def _train(self):
         if self.min_num_steps_before_training > 0:
@@ -71,15 +73,16 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 range(self._start_epoch, self.num_epochs),
                 save_itrs=True,
         ):
+            solved = False
+            if self.replay_buffer.num_steps_can_sample >= self.evaluation_after_steps:
+                _, solved = self.eval_data_collector.collect_new_paths(
+                    self.max_path_length,
+                    self.num_eps,
+                    self.reward_to_pass
+                )
 
-            _, solved = self.eval_data_collector.collect_new_paths(
-                self.max_path_length,
-                self.num_eps,
-                self.reward_to_pass
-            )
 
-
-            gt.stamp('evaluation sampling')
+                gt.stamp('evaluation sampling')
 
             if solved:
                 self._end_epoch(epoch)
@@ -101,7 +104,7 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
 
                 self.training_mode(True)
                 for _ in range(self.num_trains_per_train_loop):
-                    # TODO improve data labeling for train_dead_safe_data
+
                     train_data = self.replay_buffer.random_batch(
                         self.batch_size)
                     #print(self.batch_dead_size, self.replay_dead_buffer._size)
