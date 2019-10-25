@@ -29,7 +29,8 @@ def experiment(variant):
 
     M = variant['layer_size']
 
-    reward_to_pass = variant['reward_to_pass,'],
+    reward_to_pass = variant['reward_to_pass,']
+    num_eps_for_evaluation = variant['num_eps_for_evaluation']
     qf1 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,

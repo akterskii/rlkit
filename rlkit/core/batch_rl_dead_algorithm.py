@@ -74,7 +74,7 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 save_itrs=True,
         ):
             solved = False
-            if self.replay_buffer.num_steps_can_sample >= self.evaluation_after_steps:
+            if self.replay_buffer.num_steps_can_sample() >= self.evaluation_after_steps:
                 _, solved = self.eval_data_collector.collect_new_paths(
                     self.max_path_length,
                     self.num_eps,
