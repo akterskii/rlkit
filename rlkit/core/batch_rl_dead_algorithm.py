@@ -80,6 +80,12 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                     self.num_eps,
                     self.reward_to_pass
                 )
+            else:
+                self.eval_data_collector.collect_new_paths(
+                    10,
+                    1,
+                    self.reward_to_pass
+                )
 
 
                 gt.stamp('evaluation sampling')
