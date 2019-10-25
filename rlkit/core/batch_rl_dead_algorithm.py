@@ -1,6 +1,7 @@
 import abc
 
 import gtimer as gt
+from rlkit.core import logger
 from rlkit.core.rl_algorithm import BaseRLAlgorithm
 from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.data_management.env_replay_buffer import DeadEndEnvReplayBuffer
@@ -53,6 +54,21 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         self.reward_to_pass = reward_to_pass
         self.evaluation_after_steps = evaluation_after_steps
 
+    def _end_epoch(self, epoch, solved=False):
+        snapshot = self._get_snapshot()
+        logger.save_itr_params(epoch, snapshot)
+        gt.stamp('saving')
+        self._log_stats(epoch)
+
+        self.eval_data_collector.end_epoch(epoch)
+        if not solved:
+            self.expl_data_collector.end_epoch(epoch)
+            self.replay_buffer.end_epoch(epoch)
+            self.trainer.end_epoch(epoch)
+
+        for post_epoch_func in self.post_epoch_funcs:
+            post_epoch_func(self, epoch)
+
     def _train(self):
 
         if self.min_num_steps_before_training > 0:
@@ -92,7 +108,7 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 gt.stamp('evaluation sampling')
 
             if solved:
-                self._end_epoch(epoch)
+                self._end_epoch(epoch, solved=True)
                 return True
 
             for _ in range(self.num_train_loops_per_epoch):

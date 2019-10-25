@@ -131,8 +131,8 @@ if __name__ == "__main__":
         algorithm="SAC dead",
         version="normal",
         env_class=LunarLanderContinuous,  # BipedalWalkerHardcore,
-        reward_to_pass=200,               # 300
-        env_terminal_reward=-100,
+        reward_to_pass=0,               # 300
+        env_terminal_reward=-200,
         layer_size=256,
         replay_buffer_size=int(1E6),
         threshold=0.7,
