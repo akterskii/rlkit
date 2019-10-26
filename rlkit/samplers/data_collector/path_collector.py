@@ -102,6 +102,13 @@ class MdpPathCollectorWithDanger(MdpPathCollector):
 
 
 class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
+    def __init__(self, env, policy_danger, max_num_epoch_paths_saved, terminal_reward, render, render_kwargs):
+        super().__init__(env, policy=policy_danger,
+                         max_num_epoch_paths_saved=max_num_epoch_paths_saved,
+                         render=render, render_kwargs=render_kwargs
+                         )
+        self.terminal_reward = terminal_reward
+
     def collect_new_paths(
         self,
         max_path_length,
@@ -129,12 +136,21 @@ class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
         self._num_paths_total += len(paths)
         self._epoch_paths.extend(paths)
         returns = [sum(path["rewards"]) for path in paths]
+
+        #  passed criterion
         solved = False
 
         if np.min(returns) > reward_to_pass:
             print("Solved")
             solved = True
 
+        # # reach the end
+        # def criterion(path):
+        #     return path['terminals'] and len(path['rewards']) <= max_path_length and \
+        #            path['reward'][-1] != self.terminal_reward
+        # finished = sum([1 if criterion(path) else 0 for path in paths])
+        # if finished == len(paths):
+        #     solved = True
         return paths, solved
 
 

@@ -1,8 +1,8 @@
 import abc
 
 import gtimer as gt
-from rlkit.core import logger
-from rlkit.core.rl_algorithm import BaseRLAlgorithm
+from rlkit.core import logger, eval_util
+from rlkit.core.rl_algorithm import BaseRLAlgorithm, _get_epoch_timings
 from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.data_management.env_replay_buffer import DeadEndEnvReplayBuffer
 from rlkit.samplers.data_collector import PathCollector, MdpEvaluationWithDanger
@@ -54,11 +54,73 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         self.reward_to_pass = reward_to_pass
         self.evaluation_after_steps = evaluation_after_steps
 
+    def _log_stats(self, epoch, solved=False):
+        logger.log("Epoch {} finished".format(epoch), with_timestamp=True)
+
+        if not solved:
+            """
+            Replay Buffer
+            """
+            logger.record_dict(
+                self.replay_buffer.get_diagnostics(),
+                prefix='replay_buffer/'
+            )
+        if not solved:
+            """
+            Trainer
+            """
+            logger.record_dict(self.trainer.get_diagnostics(), prefix='trainer/')
+
+        if not solved:
+            """
+            Exploration
+            """
+            logger.record_dict(
+                self.expl_data_collector.get_diagnostics(),
+                prefix='exploration/'
+            )
+            expl_paths = self.expl_data_collector.get_epoch_paths()
+            if hasattr(self.expl_env, 'get_diagnostics'):
+                logger.record_dict(
+                    self.expl_env.get_diagnostics(expl_paths),
+                    prefix='exploration/',
+                )
+            logger.record_dict(
+                eval_util.get_generic_path_information(expl_paths),
+                prefix="exploration/",
+            )
+
+        """
+        Evaluation
+        """
+        logger.record_dict(
+            self.eval_data_collector.get_diagnostics(),
+            prefix='evaluation/',
+        )
+        eval_paths = self.eval_data_collector.get_epoch_paths()
+        if hasattr(self.eval_env, 'get_diagnostics'):
+            logger.record_dict(
+                self.eval_env.get_diagnostics(eval_paths),
+                prefix='evaluation/',
+            )
+        logger.record_dict(
+            eval_util.get_generic_path_information(eval_paths),
+            prefix="evaluation/",
+        )
+
+        """
+        Misc
+        """
+        gt.stamp('logging')
+        logger.record_dict(_get_epoch_timings())
+        logger.record_tabular('Epoch', epoch)
+        logger.dump_tabular(with_prefix=False, with_timestamp=False)
+
     def _end_epoch(self, epoch, solved=False):
         snapshot = self._get_snapshot()
         logger.save_itr_params(epoch, snapshot)
         gt.stamp('saving')
-        self._log_stats(epoch)
+        self._log_stats(epoch, solved=solved)
 
         self.eval_data_collector.end_epoch(epoch)
         if not solved:
