@@ -82,6 +82,7 @@ def experiment(variant):
     eval_path_collector = MdpEvaluationWithDanger(
         eval_env,
         eval_policy,
+        terminal_reward=variant['env_terminal_reward']
     )
 
     expl_path_collector = MdpPathCollectorWithDanger(
