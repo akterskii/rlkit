@@ -102,10 +102,12 @@ class MdpPathCollectorWithDanger(MdpPathCollector):
 
 
 class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
-    def __init__(self, env, policy_danger, max_num_epoch_paths_saved, terminal_reward, render, render_kwargs):
-        super().__init__(env, policy=policy_danger,
+    def __init__(self, env, policy_danger, terminal_reward, max_num_epoch_paths_saved=None, render=False, render_kwargs=None):
+        super().__init__(env=env,
+                         policy=policy_danger,
                          max_num_epoch_paths_saved=max_num_epoch_paths_saved,
-                         render=render, render_kwargs=render_kwargs
+                         render=render,
+                         render_kwargs=render_kwargs
                          )
         self.terminal_reward = terminal_reward
 
