@@ -8,7 +8,7 @@ from rlkit.data_management.env_replay_buffer import DeadEndEnvReplayBuffer
 from rlkit.samplers.data_collector import PathCollector, MdpEvaluationWithDanger
 
 
-class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
+class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
     def __init__(
             self,
             trainer, #:Trainer,
@@ -19,15 +19,13 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             replay_buffer: ReplayBuffer,
             replay_dead_buffer: DeadEndEnvReplayBuffer,
             batch_size,
-            batch_dead_size,
             max_path_length,
             num_epochs,
-            num_eval_steps_per_epoch,
             num_expl_steps_per_train_loop,
             num_trains_per_train_loop,
             num_eps_for_evaluation,
-            reward_to_pass,
             evaluation_after_steps,
+            batch_danger_size=None,
             num_train_loops_per_epoch=1,
             min_num_steps_before_training=0,
     ):
@@ -42,7 +40,10 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
 
         self.replay_dead_buffer = replay_dead_buffer
         self.batch_size = batch_size
-        self.batch_dead_size = batch_dead_size
+        if batch_danger_size is not None:
+            self.batch_danger_size = batch_danger_size
+        else:
+            self.batch_danger_size = max(batch_size // 2, 1)
         self.max_path_length = max_path_length
         self.num_epochs = num_epochs
         # self.num_eval_steps_per_epoch = num_eval_steps_per_epoch
@@ -51,7 +52,6 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         self.num_expl_steps_per_train_loop = num_expl_steps_per_train_loop
         self.min_num_steps_before_training = min_num_steps_before_training
         self.num_eps = num_eps_for_evaluation
-        self.reward_to_pass = reward_to_pass
         self.evaluation_after_steps = evaluation_after_steps
 
     def _log_stats(self, epoch, solved=False):
@@ -70,7 +70,6 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             Trainer
             """
             logger.record_dict(self.trainer.get_diagnostics(), prefix='trainer/')
-
         if not solved:
             """
             Exploration
@@ -132,7 +131,6 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             post_epoch_func(self, epoch)
 
     def _train(self):
-
         if self.min_num_steps_before_training > 0:
 
             init_expl_paths = self.expl_data_collector.collect_new_paths(
@@ -143,9 +141,9 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             )
             self.replay_buffer.add_paths(init_expl_paths)
             self.replay_dead_buffer.add_paths(init_expl_paths)
-            #for p in init_expl_paths:
+            # for p in init_expl_paths:
             #    print("plen: {} last reward: {}".format(len(p['actions']), p['terminals'][-1]))
-            #print("Dead size: ",self.replay_dead_buffer._size)
+            # print("Dead size: ",self.replay_dead_buffer._size)
             self.expl_data_collector.end_epoch(-1)
 
         for epoch in gt.timed_for(
@@ -153,21 +151,19 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 save_itrs=True,
         ):
             solved = False
+            
             if self.replay_buffer.num_steps_can_sample() >= self.evaluation_after_steps:
                 _, solved = self.eval_data_collector.collect_new_paths(
-                    self.max_path_length,
-                    self.num_eps,
-                    self.reward_to_pass
+                    max_path_length=self.max_path_length,
+                    num_eps=self.num_eps,
                 )
             else:
+                # temporary quick evaluation
                 self.eval_data_collector.collect_new_paths(
-                    1000,
-                    1,
-                    self.reward_to_pass
+                    max_path_length=1000,
+                    num_eps=1,
                 )
-
-
-                gt.stamp('evaluation sampling')
+            gt.stamp('evaluation sampling')
 
             if solved:
                 self._end_epoch(epoch, solved=True)
@@ -190,19 +186,19 @@ class BatchRLDeadAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 self.training_mode(True)
                 for _ in range(self.num_trains_per_train_loop):
 
-                    train_data = self.replay_buffer.random_batch(
+                    batch_normal = self.replay_buffer.random_batch(
                         self.batch_size)
                     #print(self.batch_dead_size, self.replay_dead_buffer._size)
-                    train_dead_dead_data = self.replay_dead_buffer.random_batch(
-                        self.batch_dead_size)
+                    batch_danger = self.replay_dead_buffer.random_batch(
+                        self.batch_danger_size)
                     # sample 'safe' data for class balances
-                    train_dead_safe_data = self.replay_buffer.random_batch(
-                        self.batch_dead_size)
+                    batch_safe = self.replay_buffer.random_batch(
+                        self.batch_danger_size)
                     # normal  - standard data for trining
                     # dead - data from end of the pathes with assigned probability of death
                     # safe - data from ordinary replay buffer, that is 'safe' with high probability
-                    train = {'normal': train_data, 'dead': train_dead_dead_data, 'safe': train_dead_safe_data}
-                    self.trainer.train(train)
+                    batch_full = {'normal': batch_normal, 'danger': batch_danger, 'safe': batch_safe}
+                    self.trainer.train(batch_full)
 
                 gt.stamp('training', unique=False)
                 self.training_mode(False)

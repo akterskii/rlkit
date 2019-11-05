@@ -6,6 +6,7 @@ from rlkit.samplers.data_collector.base import PathCollector
 from rlkit.torch.sac.policies import DangerPolicyCounterWrapper
 import numpy as np
 
+
 class MdpPathCollector(PathCollector):
     def __init__(
             self,
@@ -86,13 +87,14 @@ class MdpPathCollector(PathCollector):
             policy=self._policy,
         )
 
+
 class MdpPathCollectorWithDanger(MdpPathCollector):
     def __init__(self,
-            env,
-            policy:DangerPolicyCounterWrapper,
-            max_num_epoch_paths_saved=None,
-            render=False,
-            render_kwargs=None,):
+                 env,
+                 policy: DangerPolicyCounterWrapper,
+                 max_num_epoch_paths_saved=None,
+                 render=False,
+                 render_kwargs=None,):
         super().__init__(env, policy, max_num_epoch_paths_saved, render, render_kwargs)
 
     def get_diagnostics(self):
@@ -102,7 +104,14 @@ class MdpPathCollectorWithDanger(MdpPathCollector):
 
 
 class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
-    def __init__(self, env, policy_danger, terminal_reward, max_num_epoch_paths_saved=None, render=False, render_kwargs=None):
+    def __init__(self,
+                 env,
+                 policy_danger,
+                 terminal_reward,
+                 reward_to_pass,
+                 max_num_epoch_paths_saved=None,
+                 render=False,
+                 render_kwargs=None):
         super().__init__(env=env,
                          policy=policy_danger,
                          max_num_epoch_paths_saved=max_num_epoch_paths_saved,
@@ -110,12 +119,12 @@ class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
                          render_kwargs=render_kwargs
                          )
         self.terminal_reward = terminal_reward
+        self.reward_to_pass = reward_to_pass
 
     def collect_new_paths(
         self,
         max_path_length,
-        num_eps,
-        reward_to_pass
+        num_eps
     ):
         paths = []
         ep_collected = 0
@@ -142,7 +151,7 @@ class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
         #  passed criterion
         solved = False
 
-        if np.min(returns) > reward_to_pass:
+        if np.min(returns) > self.reward_to_pass:
             print("Solved")
             solved = True
 

@@ -14,7 +14,7 @@ from rlkit.torch.sac.policies import TanhGaussianPolicy, MakeDeterministic, Dang
 from rlkit.torch.sac.sac_dead import SACDeadTrainer
 from rlkit.torch.networks import FlattenMlp, TanhMlpPolicy
 
-from rlkit.torch.torch_rl_algorithm import TorchBatchRLDeadAlgorithm
+from rlkit.torch.torch_rl_algorithm import TorchBatchRLDangerAlgorithm
 
 
 def experiment(variant):
@@ -70,9 +70,9 @@ def experiment(variant):
     )
 
     global_policy = DangerAndPolicy(
-        tanh_gaussian_policy=sac_policy,
-        dead_prediction_policy=policy_dead,
-        dead_prediction_qf=qf_dead,
+        policy_base=sac_policy,
+        policy_danger=policy_dead,
+        qf_danger_probability=qf_dead,
         threshold=variant['threshold']
     )
 
@@ -111,7 +111,7 @@ def experiment(variant):
         **variant['trainer_kwargs']
     )
 
-    algorithm = TorchBatchRLDeadAlgorithm(
+    algorithm = TorchBatchRLDangerAlgorithm(
         trainer=trainer,
         exploration_env=expl_env,
         evaluation_env=eval_env,

@@ -63,6 +63,10 @@ class DeadEndEnvReplayBuffer(SimpleReplayBuffer):
         """
         :param max_replay_buffer_size:
         :param env:
+        :param env_info_sizes:
+        :param probability_function:
+        :param steps_to_end:
+        :param threshold:
         """
         self.env = env
         self._ob_space = env.observation_space

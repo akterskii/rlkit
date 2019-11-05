@@ -126,31 +126,30 @@ class TanhGaussianPolicy(Mlp, ExplorationPolicy):
 
 class DangerAndPolicy(Policy):
     def __init__(self,
-                 tanh_gaussian_policy,
-                 dead_prediction_policy,
-                 dead_prediction_qf,
+                 policy_base,
+                 policy_danger,
+                 qf_danger_probability,
                  threshold
                  ):
-        self.tanhGaussianPolicy = tanh_gaussian_policy
-        self.deadPredictionPolicy = dead_prediction_policy
-        self.deadPredictionQf = dead_prediction_qf
+        self.policy_base = policy_base
+        self.policy_danger = policy_danger
+        self.qf_danger_probability = qf_danger_probability
         self.threshold = threshold
 
         self.is_update_on_last_action = False
 
-    def get_action(self, observation, deterministic=False):
+    def get_action(self, observation):
         self.is_update_on_last_action = False
-
-        action = self.tanhGaussianPolicy.get_action(observation, deterministic=deterministic)[0]
+        # print(type(self.policy_base))
+        action = self.policy_base.get_action(observation)[0]
 
         torch_observation = torch_ify(np.expand_dims(observation, axis=0))
         torch_action = torch_ify(np.expand_dims(action, axis=0))
         # print(torch_observation, torch_action)
-        if self.deadPredictionQf(torch_observation, torch_action) >= self.threshold:
+        if self.qf_danger_probability(torch_observation, torch_action) >= self.threshold:
             self.is_update_on_last_action = True
-            action = self.deadPredictionPolicy.get_action(observation)[0]
+            action = self.policy_danger.get_action(observation)[0]
         return action, {}
-
 
 
 class MakeDeterministic(Policy):
@@ -163,16 +162,12 @@ class MakeDeterministic(Policy):
 
 
 class DangerPolicyCounterWrapper(Policy):
-    def __init__(self, danger_policy: DangerAndPolicy, deterministic=None):
+    def __init__(self, danger_policy: DangerAndPolicy):
         self.danger_policy = danger_policy
         self._updates = 0
-        self.deterministic = deterministic
 
     def get_action(self, observation):
-        if self.deterministic is not None:
-            res = self.danger_policy.get_action(observation, deterministic=self.deterministic)
-        else:
-            res = self.danger_policy.get_action(observation, deterministic=self.deterministic)
+        res = self.danger_policy.get_action(observation)
 
         if self.danger_policy.is_update_on_last_action:
             self._updates += 1

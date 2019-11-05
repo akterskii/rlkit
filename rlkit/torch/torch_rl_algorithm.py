@@ -7,7 +7,7 @@ from torch.optim.optimizer import Optimizer
 import torch
 
 from rlkit.core.batch_rl_algorithm import BatchRLAlgorithm
-from rlkit.core.batch_rl_dead_algorithm import BatchRLDeadAlgorithm
+from rlkit.core.batch_rl_dead_algorithm import BatchRLDangerAlgorithm
 from rlkit.core.online_rl_algorithm import OnlineRLAlgorithm
 from rlkit.core.trainer import Trainer
 from rlkit.torch.core import np_to_pytorch_batch
@@ -33,7 +33,7 @@ class TorchBatchRLAlgorithm(BatchRLAlgorithm):
             net.train(mode)
 
 
-class TorchBatchRLDeadAlgorithm(BatchRLDeadAlgorithm):
+class TorchBatchRLDangerAlgorithm(BatchRLDangerAlgorithm):
     def to(self, device):
         for net in self.trainer.networks:
             net.to(device)
@@ -46,6 +46,7 @@ class TorchBatchRLDeadAlgorithm(BatchRLDeadAlgorithm):
 class TorchTrainer(Trainer, metaclass=abc.ABCMeta):
     def __init__(self):
         self._num_train_steps = 0
+        self.eval_statistics = OrderedDict()
 
     def train(self, np_batch):
         self._num_train_steps += 1
@@ -78,7 +79,7 @@ class TorchTrainer(Trainer, metaclass=abc.ABCMeta):
         optimizers = self.optimizers
         object_num = 0
 
-        for net in enumerate(nets):
+        for net in nets:
             net.load_state_dict(checkpoint[object_num])
             object_num += 1
         for optimizer in optimizers:
@@ -88,14 +89,14 @@ class TorchTrainer(Trainer, metaclass=abc.ABCMeta):
         nets = self.networks
         optimizers = self.optimizers
 
-        model_paramas = {}
+        model_params = {}
         object_num = 0
-        for net in enumerate(nets):
-            model_paramas[object_num] = net.state_dict()
+        for net in nets:
+            model_params[object_num] = net.state_dict()
             object_num += 1
 
         for optimizer in optimizers:
-            model_paramas[object_num] = optimizer.state_dict()
+            model_params[object_num] = optimizer.state_dict()
             object_num += 1
 
-        torch.save(model_paramas, path)
+        torch.save(model_params, path)
