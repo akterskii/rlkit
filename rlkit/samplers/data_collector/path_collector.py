@@ -109,6 +109,7 @@ class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
                  policy_danger,
                  terminal_reward,
                  reward_to_pass,
+                 pass_criterion_name=None,
                  max_num_epoch_paths_saved=None,
                  render=False,
                  render_kwargs=None):
@@ -120,6 +121,23 @@ class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
                          )
         self.terminal_reward = terminal_reward
         self.reward_to_pass = reward_to_pass
+        if pass_criterion_name is None:
+            self.pass_criterion_name = 'min_reward_gt_threshold'
+        else:
+            self.pass_criterion_name = pass_criterion_name
+
+    def pass_criterion(self, returns, lengths, terminals, last_rewards, max_path_length):
+        # every return is higher than threshold
+        if self.pass_criterion_name == 'min_reward_gt_threshold':
+            return np.min(returns) >= self.reward_to_pass
+        # every episode finished without dead
+        elif self.pass_criterion_name == 'reach_the_end':
+            return (np.max(lengths) < max_path_length) and \
+                   (np.min(last_rewards) > self.terminal_reward) and \
+                   (sum(terminals) == len(terminals))
+        else:
+            raise NotImplementedError('Passing criterion with this name not implemented')
+
 
     def collect_new_paths(
         self,
@@ -128,7 +146,7 @@ class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
     ):
         paths = []
         ep_collected = 0
-
+        fails = 0
         while ep_collected < num_eps:
             path = rollout(
                 self._env,
@@ -141,17 +159,24 @@ class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
                     path_len != max_path_length
                     and not path['terminals'][-1]
             ):
-                break
+                fails += 1
+                if fails > 50:
+                    raise RuntimeError('Could not finish enough episodes')
+                continue
             ep_collected += 1
             paths.append(path)
         self._num_paths_total += len(paths)
         self._epoch_paths.extend(paths)
+
+        last_rewards = [path["rewards"][-1] for path in paths]
         returns = [sum(path["rewards"]) for path in paths]
+        lengths = [len(path["actions"]) for path in paths]
+        terminals = [path['terminals'][-1] for path in paths]
 
         #  passed criterion
         solved = False
 
-        if np.min(returns) > self.reward_to_pass:
+        if self.pass_criterion(returns, lengths, terminals, last_rewards, max_path_length):
             print("Solved")
             solved = True
 

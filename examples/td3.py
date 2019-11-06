@@ -6,8 +6,8 @@ a bit noisy from one epoch to the next (occasionally dips dow to ~2000).
 
 Note that one epoch = 5k steps, so 200 epochs = 1 million steps.
 """
-from gym.envs.mujoco import HalfCheetahEnv
-
+#from gym.envs.mujoco import HalfCheetahEnv
+from gym.envs.box2d import BipedalWalker
 import rlkit.torch.pytorch_util as ptu
 from rlkit.data_management.env_replay_buffer import EnvReplayBuffer
 from rlkit.envs.wrappers import NormalizedBoxEnv
@@ -22,8 +22,8 @@ from rlkit.torch.torch_rl_algorithm import TorchBatchRLAlgorithm
 
 
 def experiment(variant):
-    expl_env = NormalizedBoxEnv(HalfCheetahEnv())
-    eval_env = NormalizedBoxEnv(HalfCheetahEnv())
+    expl_env = NormalizedBoxEnv(BipedalWalker())
+    eval_env = NormalizedBoxEnv(BipedalWalker())
     obs_dim = expl_env.observation_space.low.size
     action_dim = expl_env.action_space.low.size
     qf1 = FlattenMlp(

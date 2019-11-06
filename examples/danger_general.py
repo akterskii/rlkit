@@ -2,10 +2,13 @@
 import gtimer as gt
 import torch
 from torch import optim
+import copy
+import numpy as np
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.exploration_strategies.base import PolicyWrappedWithExplorationStrategy
 from rlkit.exploration_strategies.gaussian_strategy import GaussianStrategy
+from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.launchers.launcher_util import setup_logger
 
 # Envs
@@ -15,6 +18,7 @@ from gym.envs.box2d import BipedalWalkerHardcore, BipedalWalker, LunarLanderCont
 
 # Samplers
 from rlkit.samplers.data_collector import MdpPathCollectorWithDanger
+from rlkit.torch.ddpg.ddpg import DDPGTrainer
 from rlkit.torch.samplers.path_collector import MdpEvaluationWithDangerTorch
 
 # Buffers
@@ -43,35 +47,38 @@ def get_sac(evaluation_environment, parameters):
     """
     obs_dim = evaluation_environment.observation_space.low.size
     action_dim = evaluation_environment.action_space.low.size
-    hidden_sizes = parameters['hidden_sizes']
+
+    hidden_sizes_qf = parameters['hidden_sizes_qf']
+    hidden_sizes_policy = parameters['hidden_sizes_policy']
+
     qf1 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_qf,
     )
 
     qf2 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_qf,
     )
 
     target_qf1 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_qf,
     )
 
     target_qf2 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_qf,
     )
 
     sac_policy = TanhGaussianPolicy(
         obs_dim=obs_dim,
         action_dim=action_dim,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_policy,
     )
 
     eval_policy = MakeDeterministic(sac_policy)
@@ -89,7 +96,7 @@ def get_sac(evaluation_environment, parameters):
     return sac_policy, eval_policy, trainer
 
 
-def get_t3dpg(evaluation_environment, parameters):
+def get_td3pg(evaluation_environment, parameters):
     """
     :param evaluation_environment:
     :param parameters:
@@ -97,37 +104,39 @@ def get_t3dpg(evaluation_environment, parameters):
     """
     obs_dim = evaluation_environment.observation_space.low.size
     action_dim = evaluation_environment.action_space.low.size
-    hidden_sizes = parameters['hidden_sizes']
+
+    hidden_sizes_qf = parameters['hidden_sizes_qf']
+    hidden_sizes_policy = parameters['hidden_sizes_policy']
 
     qf1 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_qf,
     )
     qf2 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_qf,
     )
     target_qf1 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_qf,
     )
     target_qf2 = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_qf,
     )
     policy = TanhMlpPolicy(
         input_size=obs_dim,
         output_size=action_dim,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_policy,
     )
     target_policy = TanhMlpPolicy(
         input_size=obs_dim,
         output_size=action_dim,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_policy,
     )
     es = GaussianStrategy(
         action_space=evaluation_environment.action_space,
@@ -151,25 +160,56 @@ def get_t3dpg(evaluation_environment, parameters):
     return exploration_policy, policy, trainer
 
 
-def get_ddpg():
-    return None, None, None
+def get_ddpg(evaluation_environment, parameters):
+    obs_dim = evaluation_environment.observation_space.low.size
+    action_dim = evaluation_environment.action_space.low.size
+    hidden_sizes_qf = parameters['hidden_sizes_qf']
+    hidden_sizes_policy = parameters['hidden_sizes_policy']
+
+    qf = FlattenMlp(
+        input_size=obs_dim + action_dim,
+        output_size=1,
+        hidden_sizes=hidden_sizes_qf,
+    )
+    policy = TanhMlpPolicy(
+        input_size=obs_dim,
+        output_size=action_dim,
+        hidden_sizes=hidden_sizes_policy,
+    )
+    target_qf = copy.deepcopy(qf)
+    target_policy = copy.deepcopy(policy)
+
+    exploration_policy = PolicyWrappedWithExplorationStrategy(
+        exploration_strategy=OUStrategy(action_space=evaluation_environment.action_space),
+        policy=policy,
+    )
+
+    trainer = DDPGTrainer(
+        qf=qf,
+        target_qf=target_qf,
+        policy=policy,
+        target_policy=target_policy,
+        **parameters['trainer_params']
+    )
+    return exploration_policy, policy, trainer
 
 
 def get_danger(env, parameters):
     obs_dim = env.observation_space.low.size
     action_dim = env.action_space.low.size
-    hidden_sizes = parameters['hidden_sizes']
+    hidden_sizes_qf = parameters['hidden_sizes_qf']
+    hidden_sizes_policy = parameters['hidden_sizes_policy']
 
     qf_danger = FlattenMlp(
         input_size=obs_dim + action_dim,
         output_size=1,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_qf,
         output_activation=torch.sigmoid,
     )
 
     policy_danger = TanhMlpPolicy(
         input_size=obs_dim,
-        hidden_sizes=hidden_sizes,
+        hidden_sizes=hidden_sizes_policy,
         output_size=action_dim,
     )
 
@@ -195,7 +235,7 @@ def experiment(variant):
     if algorithm_name == 'DDPG':
         base_policy, base_policy_evaluation, base_trainer = get_ddpg(eval_env, base_params['ddpg'])
     elif algorithm_name == 'TD3PG':
-        base_policy, base_policy_evaluation, base_trainer = get_t3dpg(eval_env, base_params['td3pg'])
+        base_policy, base_policy_evaluation, base_trainer = get_td3pg(eval_env, base_params['td3pg'])
     elif algorithm_name == 'SAC':
         base_policy, base_policy_evaluation, base_trainer = get_sac(eval_env, base_params['sac'])
     else:
@@ -271,7 +311,7 @@ if __name__ == "__main__":
     # noinspection PyTypeChecker
     variant = dict(
         general_params=dict(
-            algorithm_name="SAC",
+            algorithm_name="DDPG", #SAC TD3PG
             replay_buffer_size=int(1E6)
         ),
 
@@ -283,7 +323,8 @@ if __name__ == "__main__":
 
         base_params=dict(
             sac=dict(
-                hidden_sizes=[256, 256],
+                hidden_sizes_qf=[256, 256],
+                hidden_sizes_policy=[256, 256],
                 trainer_params=dict(
                     discount=0.99,
                     soft_target_tau=5e-3,
@@ -295,7 +336,8 @@ if __name__ == "__main__":
                 ),
             ),
             td3pg=dict(
-                hidden_sizes=[400, 300],
+                hidden_sizes_qf=[400, 300],
+                hidden_sizes_policy=[400, 300],
                 trainer_params=dict(
                     target_policy_noise=0.2,
                     target_policy_noise_clip=0.5,
@@ -310,13 +352,36 @@ if __name__ == "__main__":
                     qf_criterion=None,
                     optimizer_class=optim.Adam,
                 )
+            ),
+            ddpg=dict(
+                hidden_sizes_qf = [400, 300],
+                hidden_sizes_policy=[400, 300],
+                trainer_params=dict(
+                    discount=0.99,
+                    reward_scale=1.0,
+
+                    policy_learning_rate=1e-4,
+                    qf_learning_rate=1e-3,
+                    qf_weight_decay=0,
+                    target_hard_update_period=1000,
+                    tau=1e-2,
+                    use_soft_update=False,
+                    qf_criterion=None,
+                    policy_pre_activation_weight=0.,
+                    optimizer_class=optim.Adam,
+
+                    min_q_value=-np.inf,
+                    max_q_value=np.inf,
+                )
             )
+
         ),
 
         danger_params=dict(
             threshold=0.7,
             probability_function='Linear',
-            hidden_sizes=[256, 256],
+            hidden_sizes_qf=[400, 300],
+            hidden_sizes_policy=[400, 300],
             steps_to_end=10,
             trainer_danger_params=dict(
                 policy_lr=1e-3,
@@ -329,7 +394,7 @@ if __name__ == "__main__":
         ),
 
         algorithm_params=dict(
-            batch_size= 32,#256,
+            batch_size= 32, #256,
             max_path_length=100,
             num_epochs=2,
             num_expl_steps_per_train_loop=200,
@@ -341,6 +406,7 @@ if __name__ == "__main__":
             min_num_steps_before_training=100,
         ),
     )
+
     setup_logger('SAC+dead', variant=variant, log_dir='d:/tmp2', to_file_only=False)
     ptu.set_gpu_mode(True)  # optionally set the GPU (default=False)
     gt.reset_root()         # for interactive restarts

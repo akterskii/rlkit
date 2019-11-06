@@ -1,4 +1,5 @@
 import abc
+import pickle
 
 import gtimer as gt
 from rlkit.core import logger, eval_util
@@ -11,6 +12,7 @@ from rlkit.samplers.data_collector import PathCollector, MdpEvaluationWithDanger
 class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
     def __init__(
             self,
+            output_fname,
             trainer, #:Trainer,
             exploration_env,
             evaluation_env,
@@ -53,6 +55,7 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         self.min_num_steps_before_training = min_num_steps_before_training
         self.num_eps = num_eps_for_evaluation
         self.evaluation_after_steps = evaluation_after_steps
+        self.output_fname = output_fname
 
     def _log_stats(self, epoch, solved=False):
         logger.log("Epoch {} finished".format(epoch), with_timestamp=True)
@@ -129,6 +132,10 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
 
         for post_epoch_func in self.post_epoch_funcs:
             post_epoch_func(self, epoch)
+
+    def save(self):
+        with open(self.output_fname, "wb") as output_file:
+            pickle.dump(self, output_file)
 
     def _train(self):
         if self.min_num_steps_before_training > 0:

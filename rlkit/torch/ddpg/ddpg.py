@@ -4,6 +4,8 @@ import numpy as np
 import torch
 import torch.optim as optim
 from torch import nn as nn
+from typing import Iterable
+from torch.optim.optimizer import Optimizer
 
 import rlkit.torch.pytorch_util as ptu
 from rlkit.core.eval_util import create_stats_ordered_dict
@@ -58,7 +60,7 @@ class DDPGTrainer(TorchTrainer):
         self.policy_pre_activation_weight = policy_pre_activation_weight
         self.min_q_value = min_q_value
         self.max_q_value = max_q_value
-
+        print('\n\nCHeck\n')
         self.qf_optimizer = optimizer_class(
             self.qf.parameters(),
             lr=self.qf_learning_rate,
@@ -197,6 +199,13 @@ class DDPGTrainer(TorchTrainer):
             self.qf,
             self.target_policy,
             self.target_qf,
+        ]
+
+    @property
+    def optimizers(self) -> Iterable[Optimizer]:
+        return [
+            self.qf_optimizer,
+            self.policy_optimizer
         ]
 
     def get_epoch_snapshot(self):
