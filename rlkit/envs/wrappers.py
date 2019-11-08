@@ -167,3 +167,24 @@ class NormalizedBoxEnv(ProxyEnv):
     def __str__(self):
         return "Normalized: %s" % self._wrapped_env
 
+
+class EnvWithActionRepeat(NormalizedBoxEnv):
+    def __init__(self,
+                 env,
+                 repeat_action=1,
+                 reward_scale=1.,
+                 obs_mean=None,
+                 obs_std=None,):
+        super().__init__(env, reward_scale, obs_mean, obs_std)
+        assert repeat_action > 0
+        self.repeat_action = repeat_action
+
+    def step(self, action):
+        r = 0
+        for _ in range(self.repeat_action):
+            obs_, reward_, done_, info_ = super().step(action)
+            reward_ = reward_ if reward_ > -99.0 else 0.0
+            r = r + reward_
+            if done_:
+                return obs_, r, done_, info_
+        return obs_, r, done_, info_

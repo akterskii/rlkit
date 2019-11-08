@@ -19,7 +19,7 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             exploration_data_collector: PathCollector,
             evaluation_data_collector: MdpEvaluationWithDanger,
             replay_buffer: ReplayBuffer,
-            replay_dead_buffer: DeadEndEnvReplayBuffer,
+            replay_buffer_danger: DeadEndEnvReplayBuffer,
             batch_size,
             max_path_length,
             num_epochs,
@@ -40,7 +40,7 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             replay_buffer,
         )
 
-        self.replay_dead_buffer = replay_dead_buffer
+        self.replay_buffer_danger = replay_buffer_danger
         self.batch_size = batch_size
         if batch_danger_size is not None:
             self.batch_danger_size = batch_danger_size
@@ -67,6 +67,10 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             logger.record_dict(
                 self.replay_buffer.get_diagnostics(),
                 prefix='replay_buffer/'
+            )
+            logger.record_dict(
+                self.replay_buffer_danger.get_diagnostics(),
+                prefix='replay_buffer_danger/'
             )
         if not solved:
             """
@@ -147,7 +151,7 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 random_exploration=True
             )
             self.replay_buffer.add_paths(init_expl_paths)
-            self.replay_dead_buffer.add_paths(init_expl_paths)
+            self.replay_buffer_danger.add_paths(init_expl_paths)
             # for p in init_expl_paths:
             #    print("plen: {} last reward: {}".format(len(p['actions']), p['terminals'][-1]))
             # print("Dead size: ",self.replay_dead_buffer._size)
@@ -183,24 +187,20 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                     discard_incomplete_paths=False,
                 )
 
-                danger_updates_expl = self.expl_data_collector._policy.get_updates_count()
                 gt.stamp('exploration sampling', unique=False)
 
                 self.replay_buffer.add_paths(new_expl_paths)
-                self.replay_dead_buffer.add_paths(new_expl_paths)
+                self.replay_buffer_danger.add_paths(new_expl_paths)
                 gt.stamp('data storing', unique=False)
 
                 self.training_mode(True)
                 for _ in range(self.num_trains_per_train_loop):
 
-                    batch_normal = self.replay_buffer.random_batch(
-                        self.batch_size)
-                    #print(self.batch_dead_size, self.replay_dead_buffer._size)
-                    batch_danger = self.replay_dead_buffer.random_batch(
-                        self.batch_danger_size)
+                    batch_normal = self.replay_buffer.random_batch(self.batch_size)
+                    batch_danger = self.replay_buffer_danger.random_batch(self.batch_danger_size)
                     # sample 'safe' data for class balances
-                    batch_safe = self.replay_buffer.random_batch(
-                        self.batch_danger_size)
+                    batch_safe = self.replay_buffer.random_batch(self.batch_danger_size)
+
                     # normal  - standard data for trining
                     # dead - data from end of the pathes with assigned probability of death
                     # safe - data from ordinary replay buffer, that is 'safe' with high probability

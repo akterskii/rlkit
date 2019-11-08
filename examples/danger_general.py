@@ -12,7 +12,7 @@ from rlkit.exploration_strategies.ou_strategy import OUStrategy
 from rlkit.launchers.launcher_util import setup_logger
 
 # Envs
-from rlkit.envs.wrappers import NormalizedBoxEnv
+from rlkit.envs.wrappers import NormalizedBoxEnv, EnvWithActionRepeat
 from gym.envs.box2d import BipedalWalkerHardcore, BipedalWalker, LunarLanderContinuous
 # from gym.envs.mujoco import HalfCheetahEnv
 
@@ -228,7 +228,7 @@ def experiment(variant):
     algorithm_params = variant['algorithm_params']
 
     env_class = environment_params['class_name']
-    expl_env = NormalizedBoxEnv(env_class())
+    expl_env = EnvWithActionRepeat(NormalizedBoxEnv(env_class()), repeat_action=3)
     eval_env = NormalizedBoxEnv(env_class())
 
     algorithm_name = general_params['algorithm_name']
@@ -276,7 +276,7 @@ def experiment(variant):
         expl_env,
     )
 
-    replay_dead_buffer = DeadEndEnvReplayBuffer(
+    replay_buffer_danger = DeadEndEnvReplayBuffer(
         max_replay_buffer_size=general_params['replay_buffer_size'],
         env=expl_env,
         probability_function=danger_params['probability_function'],
@@ -300,7 +300,7 @@ def experiment(variant):
         exploration_data_collector=expl_path_collector,
         evaluation_data_collector=eval_path_collector,
         replay_buffer=replay_buffer,
-        replay_dead_buffer=replay_dead_buffer,
+        replay_buffer_danger=replay_buffer_danger,
         **algorithm_params
     )
     algorithm.to(ptu.device)
