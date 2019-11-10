@@ -6,7 +6,8 @@ from rlkit.core import logger, eval_util
 from rlkit.core.rl_algorithm import BaseRLAlgorithm, _get_epoch_timings
 from rlkit.data_management.replay_buffer import ReplayBuffer
 from rlkit.data_management.env_replay_buffer import DeadEndEnvReplayBuffer
-from rlkit.samplers.data_collector import PathCollector, MdpEvaluationWithDanger
+from rlkit.samplers.data_collector import \
+    MdpPathCollectorWithDanger, MdpEvaluationWithDanger
 
 
 class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
@@ -16,7 +17,7 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             trainer, #:Trainer,
             exploration_env,
             evaluation_env,
-            exploration_data_collector: PathCollector,
+            exploration_data_collector: MdpPathCollectorWithDanger,
             evaluation_data_collector: MdpEvaluationWithDanger,
             replay_buffer: ReplayBuffer,
             replay_buffer_danger: DeadEndEnvReplayBuffer,
@@ -30,6 +31,8 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
             batch_danger_size=None,
             num_train_loops_per_epoch=1,
             min_num_steps_before_training=0,
+            update_after_episodes_amount=1,
+            train_steps_per_collected_steps_factor = 1.5
     ):
         super().__init__(
             trainer,
@@ -56,6 +59,8 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
         self.num_eps = num_eps_for_evaluation
         self.evaluation_after_steps = evaluation_after_steps
         self.output_fname = output_fname
+        self.update_after_episodes_amount = update_after_episodes_amount
+        self.train_steps_per_collected_steps_factor = train_steps_per_collected_steps_factor
 
     def _log_stats(self, epoch, solved=False):
         logger.log("Epoch {} finished".format(epoch), with_timestamp=True)
@@ -151,7 +156,7 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 random_exploration=True
             )
             self.replay_buffer.add_paths(init_expl_paths)
-            self.replay_buffer_danger.add_paths(init_expl_paths)
+            self.replay_buffer_danger.add_paths(init_expl_paths,  )
             # for p in init_expl_paths:
             #    print("plen: {} last reward: {}".format(len(p['actions']), p['terminals'][-1]))
             # print("Dead size: ",self.replay_dead_buffer._size)
@@ -181,34 +186,36 @@ class BatchRLDangerAlgorithm(BaseRLAlgorithm, metaclass=abc.ABCMeta):
                 return True
 
             for _ in range(self.num_train_loops_per_epoch):
-                new_expl_paths = self.expl_data_collector.collect_new_paths(
-                    self.max_path_length,
-                    self.num_expl_steps_per_train_loop,
-                    discard_incomplete_paths=False,
-                )
+                cur_loop_steps = 0
+                while cur_loop_steps < self.num_expl_steps_per_train_loop:
+                    new_expl_paths, steps = self.expl_data_collector.collect_new_episodes(
+                        max_path_length=self.max_path_length,
+                        episodes_amount=self.update_after_episodes_amount,
+                    )
 
-                gt.stamp('exploration sampling', unique=False)
+                    gt.stamp('exploration sampling', unique=False)
 
-                self.replay_buffer.add_paths(new_expl_paths)
-                self.replay_buffer_danger.add_paths(new_expl_paths)
-                gt.stamp('data storing', unique=False)
+                    self.replay_buffer.add_paths(new_expl_paths)
+                    self.replay_buffer_danger.add_paths(new_expl_paths)
+                    gt.stamp('data storing', unique=False)
 
-                self.training_mode(True)
-                for _ in range(self.num_trains_per_train_loop):
+                    self.training_mode(True)
 
-                    batch_normal = self.replay_buffer.random_batch(self.batch_size)
-                    batch_danger = self.replay_buffer_danger.random_batch(self.batch_danger_size)
-                    # sample 'safe' data for class balances
-                    batch_safe = self.replay_buffer.random_batch(self.batch_danger_size)
+                    for _ in range(int(self.train_steps_per_collected_steps_factor * steps)):
 
-                    # normal  - standard data for trining
-                    # dead - data from end of the pathes with assigned probability of death
-                    # safe - data from ordinary replay buffer, that is 'safe' with high probability
-                    batch_full = {'normal': batch_normal, 'danger': batch_danger, 'safe': batch_safe}
-                    self.trainer.train(batch_full)
+                        batch_normal = self.replay_buffer.random_batch(self.batch_size)
+                        batch_danger = self.replay_buffer_danger.random_batch(self.batch_danger_size)
+                        # sample 'safe' data for class balances
+                        batch_safe = self.replay_buffer.random_batch(self.batch_danger_size)
 
-                gt.stamp('training', unique=False)
-                self.training_mode(False)
+                        # normal  - standard data for trining
+                        # dead - data from end of the pathes with assigned probability of death
+                        # safe - data from ordinary replay buffer, that is 'safe' with high probability
+                        batch_full = {'normal': batch_normal, 'danger': batch_danger, 'safe': batch_safe}
+                        self.trainer.train(batch_full)
+
+                    gt.stamp('training', unique=False)
+                    self.training_mode(False)
 
             self._end_epoch(epoch)
 

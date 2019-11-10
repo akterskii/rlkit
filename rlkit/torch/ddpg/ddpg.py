@@ -60,7 +60,6 @@ class DDPGTrainer(TorchTrainer):
         self.policy_pre_activation_weight = policy_pre_activation_weight
         self.min_q_value = min_q_value
         self.max_q_value = max_q_value
-        print('\n\nCHeck\n')
         self.qf_optimizer = optimizer_class(
             self.qf.parameters(),
             lr=self.qf_learning_rate,

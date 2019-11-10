@@ -4,6 +4,7 @@ from rlkit.core.eval_util import create_stats_ordered_dict
 from rlkit.samplers.rollout_functions import rollout, multitask_rollout
 from rlkit.samplers.data_collector.base import PathCollector
 from rlkit.torch.sac.policies import DangerPolicyCounterWrapper
+from rlkit.envs.wrappers import EnvWithActionRepeat
 import numpy as np
 
 
@@ -102,6 +103,28 @@ class MdpPathCollectorWithDanger(MdpPathCollector):
         stats['danger_updates'] = self._policy.get_updates_count()
         return stats
 
+    def collect_new_episodes(
+            self,
+            max_path_length,
+            episodes_amount,
+    ):
+        paths = []
+        num_steps_collected = 0
+        for _ in range(episodes_amount):
+            path = rollout(
+                self._env,
+                self._policy,
+                max_path_length=max_path_length,
+            )
+            path_len = len(path['actions'])
+            num_steps_collected += path_len
+            paths.append(path)
+        self._num_paths_total += len(paths)
+        self._num_steps_total += num_steps_collected
+        self._epoch_paths.extend(paths)
+
+        return paths, num_steps_collected
+
 
 class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
     def __init__(self,
@@ -147,6 +170,7 @@ class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
         paths = []
         ep_collected = 0
         fails = 0
+        num_steps_collected = 0
         while ep_collected < num_eps:
             path = rollout(
                 self._env,
@@ -154,17 +178,9 @@ class MdpEvaluationWithDanger(MdpPathCollectorWithDanger):
                 max_path_length=max_path_length
             )
             path_len = len(path['actions'])
-
-            if (
-                    path_len != max_path_length
-                    and not path['terminals'][-1]
-            ):
-                fails += 1
-                if fails > 50:
-                    raise RuntimeError('Could not finish enough episodes')
-                continue
             ep_collected += 1
             paths.append(path)
+        self._num_steps_total += num_steps_collected
         self._num_paths_total += len(paths)
         self._epoch_paths.extend(paths)
 

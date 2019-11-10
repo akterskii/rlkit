@@ -121,12 +121,13 @@ class DeadEndEnvReplayBuffer(SimpleReplayBuffer):
             **kwargs
         )
 
-    def add_paths(self, paths, terminal_reward=-100):
+    def add_paths(self, paths, terminal_reward=-100, danger_flags=None):
         # print('checgjh', len(paths))
-        for path in paths:
+        if danger_flags is not None:
+            assert len(paths) == len(danger_flags)
+        for i, path in enumerate(paths):
             # print('len of cur path', len(path['rewards']), ' ', path['terminals'][-1], ' ', path['rewards'][-1])
-            if path['terminals'][-1] and abs(path['rewards'][-1] - terminal_reward) < 10e-6:
-                # print('add')
+            if (path['terminals'][-1] and abs(path['rewards'][-1] - terminal_reward) < 10e-6):
                 self.add_path(path)
 
     def add_path(self, path):

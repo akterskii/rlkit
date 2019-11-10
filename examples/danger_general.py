@@ -316,7 +316,7 @@ if __name__ == "__main__":
         ),
 
         environment_params=dict(
-            class_name=LunarLanderContinuous,  # BipedalWalker, BipedalWalkerHardcore,
+            class_name=BipedalWalker,  # BipedalWalker, BipedalWalkerHardcore,
             reward_to_pass=0,                 # 300            300
             env_terminal_reward=-200,         # -100           -100
         ),
@@ -394,10 +394,11 @@ if __name__ == "__main__":
         ),
 
         algorithm_params=dict(
+            output_fname='D:\tmp2\out.txt',
             batch_size= 32, #256,
-            max_path_length=100,
+            max_path_length=700,
             num_epochs=2,
-            num_expl_steps_per_train_loop=200,
+            num_expl_steps_per_train_loop=2000,
             num_trains_per_train_loop=200,
             num_eps_for_evaluation=1,
             evaluation_after_steps=200,
